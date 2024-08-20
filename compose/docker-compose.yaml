@@ -1,0 +1,73 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: on-failure
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: z-score
+      MYSQL_USER: zscore
+      MYSQL_PASSWORD: changeme
+      MYSQL_ROOT_PASSWORD: changemeroot
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      - zscore
+
+  zscore-core-api:
+    image: zsoftbe/z-score-core-api:latest
+    restart: on-failure
+    ports:
+      - "8001:8080"
+    depends_on:
+      - db:
+          condition: service_healthy
+    environment:
+      - DATASOURCE_URL=jdbc:mysql://db:3306/z-score
+      - DATASOURCE_USERNAME=zscore
+      - DATASOURCE_PASSWORD=changeme
+      - SMTP_HOST=localhost
+      - SMTP_PORT=1025
+      - SMTP_USERNAME=
+      - SMTP_PASSWORD=
+      - SMTP_AUTH_ENABLED=false
+      - SMTP_STARTTLS_ENABLED=false
+      - ZSCORE_CORS_ALLOWED_ORIGINS=http://example.com
+      - ZSCORE_TOKEN_SECRET=29e38284-4646-47e3-8087-571fdf0a1a0e_f2468472-b35d-48e7-a334-d0cf88d6f696
+      - ZSCORE_TOKEN_EXPIRY_DURATION=1
+      - ZSCORE_REFRESH_TOKEN_EXPIRY_DURATION=48
+      - ZSCORE_PLAYER_TOKEN_EXPIRY_DURATION=720 # 30 Days
+      - ZSCORE_PLAYER_REFRESH_TOKEN_EXPIRY_DURATION=2160 # 90 Days
+      - ZSCORE_EMAIL_NO_REPLY=no-reply@z-soft.be
+      - ZSCORE_EMAIL_NO_REPLY_NAME=No-Reply
+      - ZSCORE_EMAIL_ACTIVATION_URL=http://example.com/action/activate
+      - ZSCORE_EMAIL_RESET_PASSWORD_URL=http://example.com/action/reset-password
+      - ZSCORE_EMAIL_REGISTER_URL=http://example.com/action/sign-up
+    networks:
+      - zscore
+
+  z-score-console:
+    image: z-softbe/z-score-console:latest
+    restart: on-failure
+    ports:
+      - "8000:80"
+    depends_on:
+      - zscore-core-api
+    environment:
+      - BASE_API_URL=http://api.example.com
+      - TERMS_URL=/terms
+    networks:
+      - zscore
+
+
+networks:
+  zscore:
+    driver: bridge
+
+volumes:
+  db:
+    driver: local
